@@ -54,6 +54,9 @@ class TLDetector(object):
         self.waypoints_2d = None
         self.waypoint_tree = None
 
+        self.imgCount = 0
+        self.labelFile = open('labels.csv', 'w')
+
         rospy.spin()
 
     def pose_cb(self, msg):
@@ -81,6 +84,13 @@ class TLDetector(object):
         self.has_image = True
         self.camera_image = msg
         light_wp, state = self.process_traffic_lights()
+
+        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
+        fname = "./img/img_{:05d}.jpg".format(self.imgCount)
+        cv2.imwrite(fname, cv_image)
+        self.labelFile.write("{},{}\n".format(fname, state))
+        self.imgCount += 1
+
 
         '''
         Publish upcoming red lights at camera frequency.
