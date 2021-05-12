@@ -12,8 +12,10 @@ import cv2
 import yaml
 from scipy.spatial import KDTree
 import math
+from keras import models
 
 STATE_COUNT_THRESHOLD = 3
+WRITE_TRAIN = True
 
 class TLDetector(object):
     def __init__(self):
@@ -23,6 +25,8 @@ class TLDetector(object):
         self.waypoints = None
         self.camera_image = None
         self.lights = []
+        self.waypoints_2d = None
+        self.waypoint_tree = None
 
         sub1 = rospy.Subscriber('/current_pose', PoseStamped, self.pose_cb)
         sub2 = rospy.Subscriber('/base_waypoints', Lane, self.waypoints_cb)
@@ -51,11 +55,14 @@ class TLDetector(object):
         self.last_wp = -1
         self.state_count = 0
 
-        self.waypoints_2d = None
-        self.waypoint_tree = None
+        self.imgCount = 890
+        if WRITE_TRAIN:
+            self.labelFile = open('labels.csv', 'a')
 
-        self.imgCount = 0
-        self.labelFile = open('labels.csv', 'w')
+        #self.light_classifier.model = models.load_model('model.h5')
+
+        #global graph
+        #self.light_classifier.graph = tf.get_default_graph()
 
         rospy.spin()
 
@@ -84,12 +91,6 @@ class TLDetector(object):
         self.has_image = True
         self.camera_image = msg
         light_wp, state = self.process_traffic_lights()
-
-        cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
-        fname = "./img/img_{:05d}.jpg".format(self.imgCount)
-        cv2.imwrite(fname, cv_image)
-        self.labelFile.write("{},{}\n".format(fname, state))
-        self.imgCount += 1
 
 
         '''
@@ -126,7 +127,7 @@ class TLDetector(object):
         return closest_idx
 
 
-    def get_light_state(self, light):
+    def get_light_state(self, light, diff):
         """Determines the current color of the traffic light
 
         Args:
@@ -137,7 +138,7 @@ class TLDetector(object):
 
         """
 
-        return light.state
+        #return light.state
 
         if(not self.has_image):
             self.prev_light_loc = None
@@ -145,8 +146,19 @@ class TLDetector(object):
 
         cv_image = self.bridge.imgmsg_to_cv2(self.camera_image, "bgr8")
 
+        classified = self.light_classifier.get_classification(cv_image)
+
+        if WRITE_TRAIN and diff < 280 and classified != light.state:
+            fname = "./img/img_{:05d}.jpg".format(self.imgCount)
+            cv2.imwrite(fname, cv_image)
+            self.labelFile.write("{},{},{}\n".format(fname, light.state, diff))
+            self.imgCount += 1
+
+        return TrafficLight.UNKNOWN
+        #return light.state
+
         #Get classification
-        return self.light_classifier.get_classification(cv_image)
+        #return self.light_classifier.get_classification(cv_image)
 
     def process_traffic_lights(self):
         """Finds closest visible traffic light, if one exists, and determines its
@@ -179,7 +191,7 @@ class TLDetector(object):
                     line_wp_idx = temp_wp_idx
 
         if closest_light:                   # if we found a closest light...
-            state = self.get_light_state(closest_light)
+            state = self.get_light_state(closest_light, diff)
             return line_wp_idx, state       # return the index and the traffic light state
 
         # self.waypoints = None
