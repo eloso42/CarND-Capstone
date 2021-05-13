@@ -11,11 +11,9 @@ import tf
 import cv2
 import yaml
 from scipy.spatial import KDTree
-import math
-from keras import models
 
 STATE_COUNT_THRESHOLD = 3
-WRITE_TRAIN = True
+WRITE_TRAIN = False # write training images and labels if set to True
 
 class TLDetector(object):
     def __init__(self):
@@ -55,14 +53,9 @@ class TLDetector(object):
         self.last_wp = -1
         self.state_count = 0
 
-        self.imgCount = 890
+        self.imgCount = 1508
         if WRITE_TRAIN:
             self.labelFile = open('labels.csv', 'a')
-
-        #self.light_classifier.model = models.load_model('model.h5')
-
-        #global graph
-        #self.light_classifier.graph = tf.get_default_graph()
 
         rospy.spin()
 
@@ -154,11 +147,10 @@ class TLDetector(object):
             self.labelFile.write("{},{},{}\n".format(fname, light.state, diff))
             self.imgCount += 1
 
-        return TrafficLight.UNKNOWN
-        #return light.state
-
         #Get classification
-        #return self.light_classifier.get_classification(cv_image)
+        return classified
+        #return TrafficLight.UNKNOWN
+        #return light.state
 
     def process_traffic_lights(self):
         """Finds closest visible traffic light, if one exists, and determines its
